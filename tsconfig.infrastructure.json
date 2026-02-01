@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/infrastructure",
+    "rootDir": "."
+  },
+  "include": ["infrastructure/**/*"],
+  "exclude": ["node_modules", "dist", "cdk.out", "src", "test"]
+}
