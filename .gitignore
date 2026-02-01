@@ -1,17 +1,15 @@
 # Dependencies
 node_modules/
+*/node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build outputs
-dist/
+# Production builds
 build/
-*.tsbuildinfo
-
-# CDK outputs
-cdk.out/
-cdk.context.json
+dist/
+*/build/
+*/dist/
 
 # Environment variables
 .env
@@ -20,7 +18,7 @@ cdk.context.json
 .env.test.local
 .env.production.local
 
-# IDE files
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
@@ -37,65 +35,37 @@ ehthumbs.db
 Thumbs.db
 
 # Logs
-logs/
+logs
 *.log
-
-# Coverage reports
-coverage/
-.nyc_output/
-
-# Test outputs
-test-results/
-junit.xml
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# AWS credentials (should never be committed)
-.aws/
-aws-credentials.json
-
-# Python (for Hypothesis property testing)
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# Package files
-*.tgz
-*.tar.gz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
 # Runtime data
-pids/
+pids
 *.pid
 *.seed
 *.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
 
 # Optional npm cache directory
 .npm
 
 # Optional eslint cache
 .eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
 
 # Optional REPL history
 .node_repl_history
@@ -110,25 +80,58 @@ pids/
 .cache
 .parcel-cache
 
-# next.js build output
+# Next.js build output
 .next
 
-# nuxt.js build output
+# Nuxt.js build / generate output
 .nuxt
 
-# vuepress build output
-.vuepress/dist
+# Gatsby files
+.cache/
+public
 
-# Serverless directories
-.serverless
+# Storybook build outputs
+.out
+.storybook-out
 
-# FuseBox cache
-.fusebox/
+# Temporary folders
+tmp/
+temp/
 
-# DynamoDB Local files
-.dynamodb/
+# AWS CDK
+cdk.out/
 
-# Local development files
-local-config.json
-test-data/
-mock-data/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.hypothesis/
+
+# Local development
+uploads/
+*.sqlite
+*.db
+
+# Process files
+*.pid
+
+# Test files
+test-results/
+coverage/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Compiled TypeScript
+*.js.map
+*.d.ts.map
