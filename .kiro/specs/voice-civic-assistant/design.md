@@ -2,17 +2,29 @@
 
 ## Overview
 
-The Voice-First Civic Assistant is a serverless, AI-powered system built on AWS that enables citizens to access government health services through natural voice interaction. The system uses a microservices architecture with Amazon Bedrock for AI reasoning, Amazon Transcribe for speech processing, and Amazon Rekognition for image analysis.
+The Voice-First Civic Assistant is a serverless, AI-powered system built on AWS that enables citizens to access all government schemes and services through natural voice interaction. The system uses a microservices architecture with Amazon Bedrock for AI reasoning, Amazon Transcribe for speech processing, and Amazon Rekognition for document analysis.
+
+**Vision:** A unified platform for all government schemes in India, making civic services accessible through voice-first interaction in local languages.
+
+**MVP Implementation:** The initial version focuses on health schemes (PM-JAY) to validate the core platform capabilities, with a modular architecture designed for rapid expansion to other domains.
+
+**Future Expansion Roadmap:**
+
+- **Phase 1 (MVP):** Health schemes (PM-JAY, health insurance)
+- **Phase 2:** Employment schemes (MGNREGA, skill development)
+- **Phase 3:** Education schemes (scholarships, admissions)
+- **Phase 4:** Housing schemes (PMAY, rural housing)
+- **Phase 5:** Agriculture schemes (subsidies, loans)
+- **Phase 6:** Social welfare schemes (pensions, disability benefits)
 
 The core workflow involves:
 
 1. Voice input processing and intent classification
-2. Context-aware conversation management
-3. AI-powered eligibility assessment or grievance generation
-4. Human-in-the-loop document confirmation
-5. Structured output generation
-
-The system is designed for scalability, security, and multilingual support while maintaining explainable AI decisions and responsible data handling.
+2. Scheme identification and domain routing
+3. Context-aware conversation management
+4. AI-powered eligibility assessment or grievance generation
+5. Human-in-the-loop document confirmation
+6. Structured output generation
 
 ## Architecture
 
@@ -25,20 +37,43 @@ graph TB
 
     Orchestrator --> Speech[Speech Processor]
     Orchestrator --> Intent[Intent Classifier]
-    Orchestrator --> Eligibility[Eligibility Engine]
+    Orchestrator --> SchemeEngine[Scheme Engine]
+    Orchestrator --> AppGen[Application Generator]
     Orchestrator --> Grievance[Grievance Generator]
     Orchestrator --> Confirmation[Confirmation Handler]
 
     Speech --> Transcribe[Amazon Transcribe]
     Intent --> Bedrock1[Amazon Bedrock]
-    Eligibility --> Bedrock2[Amazon Bedrock]
-    Grievance --> Bedrock3[Amazon Bedrock]
+    SchemeEngine --> Bedrock2[Amazon Bedrock]
+    SchemeEngine --> SchemeDB[Scheme Database]
+    AppGen --> Bedrock3[Amazon Bedrock]
+    Grievance --> Bedrock4[Amazon Bedrock]
 
     Orchestrator --> ImageAnalyzer[Image Analyzer]
     ImageAnalyzer --> Rekognition[Amazon Rekognition]
 
+    SchemeDB --> DynamoDB[DynamoDB Tables]
     Orchestrator --> Storage[S3 Temporary Storage]
     Orchestrator --> Response[Structured Response]
+
+    subgraph "MVP Focus"
+        PMJAY[PM-JAY Health Schemes]
+    end
+
+    subgraph "Future Expansion"
+        Education[Education Schemes]
+        Employment[Employment Schemes]
+        Housing[Housing Schemes]
+        Agriculture[Agriculture Schemes]
+        Welfare[Social Welfare]
+    end
+
+    SchemeDB --> PMJAY
+    SchemeDB -.-> Education
+    SchemeDB -.-> Employment
+    SchemeDB -.-> Housing
+    SchemeDB -.-> Agriculture
+    SchemeDB -.-> Welfare
 ```
 
 ### Component Architecture
@@ -99,7 +134,7 @@ interface TranscriptionResult {
 
 ### Intent Classifier
 
-**Purpose:** Determines user intent (scheme eligibility vs grievance filing) from natural language input.
+**Purpose:** Determines user intent and identifies the relevant government scheme domain from natural language input.
 
 **Interface:**
 
@@ -109,44 +144,93 @@ interface IntentClassifier {
     text: string,
     context: ConversationContext,
   ): Promise<IntentResult>;
+  identifyScheme(
+    text: string,
+    domain: SchemeDomain,
+  ): Promise<SchemeIdentification>;
   askClarification(ambiguousInput: string): Promise<ClarificationQuestion>;
 }
 
 interface IntentResult {
-  intent: "eligibility" | "grievance" | "unclear";
+  intent:
+    | "scheme_inquiry"
+    | "eligibility_check"
+    | "application"
+    | "grievance"
+    | "general_info";
+  domain: SchemeDomain;
+  scheme?: SpecificScheme;
   confidence: number;
   entities: ExtractedEntity[];
   reasoning: string;
 }
+
+interface SchemeIdentification {
+  domain: SchemeDomain;
+  schemes: SpecificScheme[];
+  confidence: number;
+  suggestedQuestions: string[];
+}
+
+enum SchemeDomain {
+  HEALTH = "health",
+  EDUCATION = "education",
+  EMPLOYMENT = "employment",
+  HOUSING = "housing",
+  AGRICULTURE = "agriculture",
+  SOCIAL_WELFARE = "social_welfare",
+  GENERAL = "general",
+}
 ```
 
-**Implementation:** Uses Amazon Bedrock with few-shot prompting and conversation context to classify user intents accurately.
+**Implementation:** Uses Amazon Bedrock with domain-specific prompting and scheme knowledge base to classify intents and identify relevant schemes accurately.
 
-### Eligibility Engine
+### Scheme Engine
 
-**Purpose:** Evaluates PM-JAY eligibility based on household information and official criteria.
+**Purpose:** Evaluates eligibility for government schemes based on user information and official criteria. Replaces the PM-JAY specific Eligibility Engine with a comprehensive multi-scheme approach.
 
 **Interface:**
 
 ```typescript
-interface EligibilityEngine {
-  assessEligibility(householdInfo: HouseholdInfo): Promise<EligibilityResult>;
+interface SchemeEngine {
+  assessEligibility(
+    userInfo: UserInfo,
+    scheme: SpecificScheme,
+  ): Promise<EligibilityResult>;
+  getSchemeInfo(
+    scheme: SpecificScheme,
+    language: Language,
+  ): Promise<SchemeInformation>;
+  findApplicableSchemes(userProfile: UserProfile): Promise<ApplicableScheme[]>;
   generateQuestions(
-    incompleteInfo: Partial<HouseholdInfo>,
+    scheme: SpecificScheme,
+    incompleteInfo: Partial<UserInfo>,
   ): Promise<Question[]>;
   explainDecision(result: EligibilityResult): Promise<Explanation>;
 }
 
 interface EligibilityResult {
+  scheme: SpecificScheme;
   eligible: boolean;
   reasoning: string[];
   missingCriteria?: string[];
   qualifyingFactors?: string[];
   confidenceScore: number;
+  alternativeSchemes?: SpecificScheme[];
+}
+
+interface SchemeInformation {
+  name: string;
+  description: string;
+  eligibilityCriteria: string[];
+  benefits: string[];
+  applicationProcess: string[];
+  requiredDocuments: string[];
+  contactInfo: ContactInformation;
 }
 ```
 
-**Implementation:** Uses rule-based logic combined with Amazon Bedrock for complex household composition analysis and explanation generation.
+**Implementation:** Uses rule-based logic combined with Amazon Bedrock for complex eligibility analysis. Integrates with the Scheme Database for up-to-date criteria and information.
 
 ### Grievance Generator
 
@@ -202,37 +286,46 @@ interface ExtractedInfo {
 
 **Implementation:** Uses Amazon Rekognition for OCR and Amazon Bedrock for intelligent information extraction and validation.
 
-### Document Generator
+### Application Generator
 
-**Purpose:** Creates structured application drafts and grievance forms.
+**Purpose:** Creates structured application drafts for various government schemes.
 
 **Interface:**
 
 ```typescript
-interface DocumentGenerator {
+interface ApplicationGenerator {
   generateApplication(
     eligibilityResult: EligibilityResult,
     userInfo: UserInfo,
+    scheme: SpecificScheme,
   ): Promise<ApplicationDraft>;
-  generateGrievanceForm(
-    grievance: GrievanceDocument,
-    userInfo: UserInfo,
-  ): Promise<GrievanceForm>;
+  getApplicationTemplate(scheme: SpecificScheme): Promise<ApplicationTemplate>;
+  validateApplication(application: ApplicationDraft): Promise<ValidationResult>;
   formatForSubmission(
-    document: Document,
+    application: ApplicationDraft,
     format: OutputFormat,
   ): Promise<FormattedDocument>;
 }
 
 interface ApplicationDraft {
-  formFields: Record<string, string>;
-  requiredDocuments: string[];
+  scheme: SpecificScheme;
+  formFields: Record<string, FormField>;
+  requiredDocuments: RequiredDocument[];
   submissionInstructions: string;
   incompleteFields: string[];
+  estimatedProcessingTime: string;
+  contactInformation: ContactInformation;
+}
+
+interface ApplicationTemplate {
+  scheme: SpecificScheme;
+  sections: FormSection[];
+  validationRules: ValidationRule[];
+  documentRequirements: DocumentRequirement[];
 }
 ```
 
-**Implementation:** Template-based generation with dynamic field population and validation.
+**Implementation:** Template-based generation with dynamic field population, validation, and scheme-specific formatting. Supports extensible templates for new schemes.
 
 ### Confirmation Handler
 
@@ -263,6 +356,47 @@ interface ReviewSession {
 
 **Implementation:** Interactive review process with change tracking and iterative refinement.
 
+### Scheme Database
+
+**Purpose:** Centralized knowledge base containing information about all government schemes, eligibility criteria, and application processes.
+
+**Interface:**
+
+```typescript
+interface SchemeDatabase {
+  getScheme(schemeId: string): Promise<SchemeDetails>;
+  searchSchemes(criteria: SearchCriteria): Promise<SchemeSearchResult[]>;
+  getEligibilityCriteria(scheme: SpecificScheme): Promise<EligibilityCriteria>;
+  getApplicationProcess(scheme: SpecificScheme): Promise<ApplicationProcess>;
+  updateScheme(schemeId: string, updates: SchemeUpdates): Promise<void>;
+  addNewScheme(scheme: NewSchemeDefinition): Promise<string>;
+}
+
+interface SchemeDetails {
+  id: string;
+  name: string;
+  domain: SchemeDomain;
+  description: string;
+  eligibilityCriteria: EligibilityCriteria;
+  benefits: Benefit[];
+  applicationProcess: ApplicationProcess;
+  requiredDocuments: DocumentRequirement[];
+  contactInformation: ContactInformation;
+  lastUpdated: Date;
+  version: string;
+}
+
+interface EligibilityCriteria {
+  income?: IncomeRange;
+  age?: AgeRange;
+  location?: LocationCriteria;
+  category?: SocialCategory[];
+  customCriteria?: CustomCriterion[];
+}
+```
+
+**Implementation:** DynamoDB-based storage with hierarchical scheme organization, version control, and efficient querying capabilities. Supports rapid addition of new schemes and criteria updates.
+
 ## Data Models
 
 ### Core Data Types
@@ -275,6 +409,9 @@ interface UserSession {
   language: Language;
   conversationHistory: ConversationTurn[];
   currentIntent: Intent;
+  currentDomain: SchemeDomain;
+  currentScheme?: SpecificScheme;
+  userProfile?: UserProfile;
   createdAt: Date;
   expiresAt: Date;
 }
@@ -284,93 +421,166 @@ interface ConversationTurn {
   userInput: string;
   systemResponse: string;
   intent: Intent;
+  domain: SchemeDomain;
+  scheme?: SpecificScheme;
   entities: ExtractedEntity[];
 }
 
-// Household and Eligibility
+// User Information and Profiles
+interface UserProfile {
+  personalInfo: PersonalInfo;
+  householdInfo?: HouseholdInfo;
+  locationInfo: LocationInfo;
+  economicInfo?: EconomicInfo;
+  educationInfo?: EducationInfo;
+  employmentInfo?: EmploymentInfo;
+  existingSchemes: EnrolledScheme[];
+}
+
+interface PersonalInfo {
+  name?: string;
+  age?: number;
+  gender?: Gender;
+  category?: SocialCategory;
+  disabilities?: Disability[];
+  chronicConditions?: MedicalCondition[];
+  identityDocuments?: IdentityDocument[];
+}
+
 interface HouseholdInfo {
   headOfHousehold: PersonInfo;
   members: PersonInfo[];
+  totalMembers: number;
+  dependents: number;
   address: Address;
   economicStatus: EconomicIndicators;
-  existingSchemes: string[];
 }
 
-interface PersonInfo {
+interface LocationInfo {
+  state: string;
+  district: string;
+  block?: string;
+  village?: string;
+  pincode: string;
+  isRural: boolean;
+}
+
+// Scheme-Related Data
+interface SpecificScheme {
+  id: string;
   name: string;
-  age: number;
-  gender: Gender;
-  relation: FamilyRelation;
-  occupation?: string;
-  disabilities?: Disability[];
-  chronicConditions?: MedicalCondition[];
+  domain: SchemeDomain;
+  category: string;
+  implementingAgency: string;
+  isActive: boolean;
 }
 
-interface EconomicIndicators {
-  incomeCategory: IncomeCategory;
-  rationCardType?: RationCardType;
-  landOwnership?: LandOwnership;
-  housingType: HousingType;
-  assets: Asset[];
+interface EnrolledScheme {
+  scheme: SpecificScheme;
+  enrollmentDate: Date;
+  status: EnrollmentStatus;
+  benefitAmount?: number;
+  expiryDate?: Date;
 }
 
-// Grievance and Complaint
-interface UserComplaint {
+// Application and Document Data
+interface ApplicationData {
+  scheme: SpecificScheme;
+  applicantInfo: UserProfile;
+  formData: Record<string, FormFieldValue>;
+  supportingDocuments: UploadedDocument[];
+  status: ApplicationStatus;
+  submissionDate?: Date;
+  trackingNumber?: string;
+}
+
+interface GrievanceData {
+  id: string;
+  scheme?: SpecificScheme;
+  domain: SchemeDomain;
+  category: GrievanceCategory;
   description: string;
   incidentDate: Date;
   location: string;
   involvedParties: string[];
-  category: ComplaintCategory;
   severity: SeverityLevel;
   evidence: Evidence[];
-}
-
-interface Evidence {
-  type: EvidenceType;
-  description: string;
-  imageData?: Buffer;
-  extractedInfo?: ExtractedInfo;
-}
-
-// Document Generation
-interface Document {
-  id: string;
-  type: DocumentType;
-  title: string;
-  content: DocumentContent;
-  metadata: DocumentMetadata;
-  status: DocumentStatus;
-}
-
-interface DocumentContent {
-  sections: DocumentSection[];
-  formFields: Record<string, FormField>;
-  attachments: Attachment[];
+  status: GrievanceStatus;
+  assignedOfficer?: string;
 }
 
 // Enums and Constants
-enum Language {
-  HINDI = "hi",
-  ENGLISH = "en",
+enum SchemeDomain {
+  HEALTH = "health",
+  EDUCATION = "education",
+  EMPLOYMENT = "employment",
+  HOUSING = "housing",
+  AGRICULTURE = "agriculture",
+  SOCIAL_WELFARE = "social_welfare",
+  GENERAL = "general",
 }
 
 enum Intent {
-  ELIGIBILITY_CHECK = "eligibility",
-  GRIEVANCE_FILING = "grievance",
-  GENERAL_INQUIRY = "inquiry",
+  SCHEME_INQUIRY = "scheme_inquiry",
+  ELIGIBILITY_CHECK = "eligibility_check",
+  APPLICATION = "application",
+  GRIEVANCE_FILING = "grievance_filing",
+  STATUS_CHECK = "status_check",
+  GENERAL_INFO = "general_info",
 }
 
-enum ComplaintCategory {
-  HOSPITAL_OVERCHARGING = "overcharging",
-  BENEFIT_DENIAL = "benefit_denial",
+enum GrievanceCategory {
+  // Health Domain
+  HOSPITAL_OVERCHARGING = "hospital_overcharging",
+  TREATMENT_DENIAL = "treatment_denial",
   SERVICE_QUALITY = "service_quality",
+
+  // Employment Domain
+  WAGE_DELAY = "wage_delay",
+  WORK_DENIAL = "work_denial",
+  CORRUPTION = "corruption",
+
+  // Education Domain
+  SCHOLARSHIP_DELAY = "scholarship_delay",
+  ADMISSION_ISSUES = "admission_issues",
+
+  // Housing Domain
+  CONSTRUCTION_DELAY = "construction_delay",
+  QUALITY_ISSUES = "quality_issues",
+
+  // General
   DISCRIMINATION = "discrimination",
+  DOCUMENT_ISSUES = "document_issues",
+  PROCESS_DELAY = "process_delay",
+}
+
+enum ApplicationStatus {
+  DRAFT = "draft",
+  SUBMITTED = "submitted",
+  UNDER_REVIEW = "under_review",
+  APPROVED = "approved",
+  REJECTED = "rejected",
+  REQUIRES_DOCUMENTS = "requires_documents",
 }
 
 enum DocumentType {
-  PM_JAY_APPLICATION = "pmjay_application",
+  // Applications
+  PMJAY_APPLICATION = "pmjay_application",
+  SCHOLARSHIP_APPLICATION = "scholarship_application",
+  HOUSING_APPLICATION = "housing_application",
+  EMPLOYMENT_APPLICATION = "employment_application",
+
+  // Grievances
   HEALTH_GRIEVANCE = "health_grievance",
-  SUPPORTING_DOCUMENT = "supporting_doc",
+  EDUCATION_GRIEVANCE = "education_grievance",
+  EMPLOYMENT_GRIEVANCE = "employment_grievance",
+
+  // Supporting Documents
+  IDENTITY_PROOF = "identity_proof",
+  INCOME_CERTIFICATE = "income_certificate",
+  CASTE_CERTIFICATE = "caste_certificate",
+  MEDICAL_CERTIFICATE = "medical_certificate",
+  SUPPORTING_DOCUMENT = "supporting_document",
 }
 ```
 
@@ -412,54 +622,54 @@ _For any_ voice input under 2 minutes, the Speech_Processor should complete proc
 _For any_ poor quality audio, unclear images, or system errors, the Voice_Assistant should provide clear error messages and appropriate recovery options (repeat input, clearer image, etc.).
 **Validates: Requirements 1.2, 6.3, 10.3**
 
-### Property 4: Intent Classification Accuracy
+### Property 4: Intent Classification and Scheme Identification Accuracy
 
-_For any_ clear user statement describing their needs, the Intent_Classifier should correctly identify whether they want PM-JAY eligibility checking or grievance filing with at least 90% accuracy.
+_For any_ clear user statement describing their needs, the Intent_Classifier should correctly identify the intent type (scheme inquiry, eligibility check, application, grievance) and relevant scheme domain with at least 90% accuracy.
 **Validates: Requirements 2.1, 2.4**
 
-### Property 5: Intent Ambiguity Handling
+### Property 5: Multi-Domain Intent Handling
 
-_For any_ ambiguous user input or intent switching during conversation, the Intent_Classifier should ask appropriate clarifying questions and adapt the workflow accordingly.
-**Validates: Requirements 2.2, 2.3**
+_For any_ ambiguous user input or domain switching during conversation, the Intent_Classifier should ask appropriate clarifying questions, identify the correct scheme domain, and adapt the workflow accordingly.
+**Validates: Requirements 2.2, 2.3, 2.5**
 
-### Property 6: Eligibility Assessment Correctness
+### Property 6: Scheme Eligibility Assessment Correctness
 
-_For any_ complete household information, the Eligibility_Engine should evaluate PM-JAY eligibility according to official criteria and handle complex household compositions including joint families and dependents.
+_For any_ complete user information, the Scheme_Engine should evaluate eligibility according to official scheme criteria and handle complex scenarios including multiple scheme eligibility.
 **Validates: Requirements 3.1, 3.5**
 
-### Property 7: Eligibility Information Gathering
+### Property 7: Scheme Information Gathering
 
-_For any_ incomplete household information, the Eligibility_Engine should ask specific follow-up questions to gather necessary details for accurate assessment.
-**Validates: Requirements 3.3**
+_For any_ incomplete user information, the Scheme_Engine should ask specific follow-up questions to gather necessary details for accurate scheme assessment and suggest alternative schemes when applicable.
+**Validates: Requirements 3.3, 3.6**
 
-### Property 8: Document Generation Completeness
+### Property 8: Multi-Scheme Application Generation
 
-_For any_ eligible user or valid grievance, the Document_Generator should create structured documents that include all required fields based on provided information and clearly mark any incomplete sections.
-**Validates: Requirements 4.1, 4.2, 4.3, 5.1**
+_For any_ eligible user for any supported scheme, the Application_Generator should create structured applications that include all required fields based on provided information and clearly mark any incomplete sections.
+**Validates: Requirements 4.1, 4.2, 4.3, 4.6**
 
-### Property 9: Document Format Compliance
+### Property 9: Scheme-Specific Document Format Compliance
 
-_For any_ generated PM-JAY application or health grievance, the Document_Generator should format the output according to official form requirements and submission standards.
-**Validates: Requirements 4.4, 5.5**
+_For any_ generated application for any government scheme, the Application_Generator should format the output according to official scheme form requirements and submission standards.
+**Validates: Requirements 4.4, 4.5**
 
-### Property 10: Grievance Legal References
+### Property 10: Multi-Domain Grievance Processing
 
-_For any_ hospital overcharging complaint, the Grievance_Generator should include relevant legal and policy references, and for benefit denial complaints, should reference applicable PM-JAY guidelines.
-**Validates: Requirements 5.2, 5.3**
+_For any_ complaint about any government scheme or service, the Grievance_Generator should include relevant legal and policy references, route to appropriate authorities, and reference applicable scheme guidelines.
+**Validates: Requirements 5.2, 5.3, 5.6**
 
 ### Property 11: Information Gathering for Grievances
 
 _For any_ insufficient grievance details, the Grievance_Generator should ask targeted questions to gather necessary information for complete complaint documentation.
 **Validates: Requirements 5.4**
 
-### Property 12: Image Analysis and Extraction
+### Property 12: Multi-Domain Document Analysis
 
-_For any_ uploaded document image with acceptable quality, the Image_Analyzer should extract relevant text and information, identify key details from medical bills/receipts, and integrate findings with voice input.
+_For any_ uploaded document related to any government scheme (bills, certificates, identity proofs), the Image_Analyzer should extract relevant text and information, identify key details, and integrate findings with voice input.
 **Validates: Requirements 6.1, 6.2, 6.4**
 
-### Property 13: Document Type Recognition
+### Property 13: Scheme-Specific Document Recognition
 
-_For any_ common document type (bills, prescriptions, identity documents), the Image_Analyzer should properly recognize and process the document according to its type.
+_For any_ common document type related to government schemes (certificates, bills, identity documents, scheme-specific forms), the Image_Analyzer should properly recognize and process the document according to its type and scheme context.
 **Validates: Requirements 6.5**
 
 ### Property 14: Language Consistency
@@ -492,15 +702,25 @@ _For any_ completed conversation or user deletion request, the Voice_Assistant s
 _For any_ simple voice query, the Voice_Assistant should respond within 5 seconds, and for document generation tasks, should complete processing within 30 seconds.
 **Validates: Requirements 10.1, 10.2**
 
-### Property 20: Explainable Eligibility Decisions
+### Property 20: Explainable Scheme Decisions
 
-_For any_ PM-JAY eligibility determination, the Eligibility_Engine should provide step-by-step reasoning, explain unmet criteria for denials, and highlight qualifying factors for approvals.
+_For any_ government scheme eligibility determination, the Scheme_Engine should provide step-by-step reasoning, explain unmet criteria for denials, highlight qualifying factors for approvals, and suggest alternative schemes when applicable.
 **Validates: Requirements 3.2, 11.1, 11.2, 11.3**
 
-### Property 21: Explainable Grievance Generation
+### Property 21: Explainable Multi-Domain Grievance Generation
 
-_For any_ generated grievance document, the Grievance_Generator should explain how user input was structured into formal complaints using simple, understandable language appropriate to the user's literacy level.
+_For any_ generated grievance document for any scheme domain, the Grievance_Generator should explain how user input was structured into formal complaints using simple, understandable language appropriate to the user's literacy level.
 **Validates: Requirements 11.4, 11.5**
+
+### Property 22: Scheme Database Consistency and Extensibility
+
+_For any_ new government scheme added to the system, the Scheme_Database should integrate seamlessly with existing components, maintain data consistency, and support the complete workflow from intent classification to document generation.
+**Validates: Requirements 12.1, 12.2, 12.4, 13.1, 13.2**
+
+### Property 23: Multi-Domain Workflow Adaptability
+
+_For any_ supported government domain (health, education, employment, housing, agriculture, social welfare), the Voice_Assistant should provide domain-appropriate responses, use correct terminology, and follow domain-specific processes while maintaining consistent user experience.
+**Validates: Requirements 13.3, 13.4, 13.5**
 
 ## Error Handling
 
