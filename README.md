@@ -2,6 +2,12 @@
 
 A serverless, AI-powered system that enables citizens to interact with government health schemes and grievance systems using natural voice input in their local language. Built on AWS with comprehensive property-based testing for universal correctness guarantees.
 
+## 📋 Project Documentation
+
+- **[Requirements Document](./REQUIREMENTS.md)** - Comprehensive user stories, acceptance criteria, and system requirements
+- **[Design Document](./DESIGN.md)** - Technical architecture, component interfaces, and implementation details
+- **[Implementation Tasks](./TASKS.md)** - Detailed task breakdown and development roadmap
+
 ## 🎯 Overview
 
 The Voice-First Civic Assistant addresses accessibility barriers faced by low-literacy and regional-language users when accessing:
